@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+data/raw/*.txt
+data/raw/*.zip
+data/processed/*.csv
+*.pkl
+*.joblib
+.pytest_cache/
