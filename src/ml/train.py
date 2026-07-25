@@ -38,7 +38,8 @@ def train():
         max_depth=6,
         learning_rate=0.05,
         random_state=42,
-        scale_pos_weight=1.5,  # normal:malicious ratio, pushes recall up on the minority class
+        scale_pos_weight=1.5,
+        n_jobs=1,  # pin thread count — avoids per-call cpu_count() detection overhead
     )
     model.fit(X_train, y_train)
 

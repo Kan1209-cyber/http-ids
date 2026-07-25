@@ -1,4 +1,5 @@
 import joblib
+import numpy as np
 import pandas as pd
 import os
 
@@ -29,5 +30,5 @@ class MLModel:
         """Returns probability of malicious class."""
         row = feature_dict.copy()
         row["method"] = METHOD_CODES.get(row["method"], -1)
-        df = pd.DataFrame([row])[FEATURE_COLUMNS]
-        return float(self.model.predict_proba(df)[0][1])
+        arr = np.array([[row[col] for col in FEATURE_COLUMNS]])
+        return float(self.model.predict_proba(arr)[0][1])
