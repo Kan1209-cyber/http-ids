@@ -2,6 +2,9 @@ import sys, os, time, warnings, random
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 warnings.filterwarnings("ignore")
 
+import numpy as np
+from scipy.stats import wilcoxon
+
 from src.features.request_parser import parse_requests_from_file
 from src.pipeline import run_pipeline
 from src.baselines.pure_ml import run_pure_ml
@@ -25,28 +28,41 @@ systems = {
     "Signature-based": run_signature_based,
 }
 
-# Warm-up pass — run all three once before timing anything
 for req in sample[:200]:
     run_pipeline(req)
     run_pure_ml(req)
     run_signature_based(req)
 
-N_ROUNDS = 5
+N_ROUNDS = 10  # more rounds gives the statistical test more power
 results = {name: [] for name in systems}
 
 print(f"Benchmarking on {len(sample)} requests, {N_ROUNDS} interleaved rounds\n")
 
 for round_num in range(N_ROUNDS):
-    # Randomize order each round so no system is always first or always last
     order = list(systems.items())
     random.shuffle(order)
     for name, fn in order:
         t = time_system(fn, sample)
         results[name].append(t)
+    print(f"Round {round_num + 1}/{N_ROUNDS} done")
 
-print(f"{'System':<25} {'Avg ms/request':>16} {'Min':>10} {'Max':>10}")
+print(f"\n{'System':<25} {'Mean ms/req':>12} {'Std':>10} {'Min':>10} {'Max':>10}")
 for name, times in results.items():
-    avg_ms = (sum(times) / len(times) / len(sample)) * 1000
-    min_ms = (min(times) / len(sample)) * 1000
-    max_ms = (max(times) / len(sample)) * 1000
-    print(f"{name:<25} {avg_ms:>16.4f} {min_ms:>10.4f} {max_ms:>10.4f}")
+    times_ms = [(t / len(sample)) * 1000 for t in times]
+    mean = np.mean(times_ms)
+    std = np.std(times_ms, ddof=1)
+    print(f"{name:<25} {mean:>12.4f} {std:>10.4f} {min(times_ms):>10.4f} {max(times_ms):>10.4f}")
+
+# --- Paired Wilcoxon signed-rank test: FSM+ML vs Pure-ML ---
+fsm_ml_times = results["FSM + ML (proposed)"]
+pure_ml_times = results["Pure ML"]
+
+stat, p_value = wilcoxon(fsm_ml_times, pure_ml_times)
+
+print(f"\n=== Wilcoxon signed-rank test: FSM+ML vs Pure-ML ===")
+print(f"Statistic: {stat:.4f}")
+print(f"p-value: {p_value:.4f}")
+if p_value < 0.05:
+    print("Result: statistically significant difference (p < 0.05)")
+else:
+    print("Result: NOT statistically significant (p >= 0.05) — cannot reject that they perform the same")
